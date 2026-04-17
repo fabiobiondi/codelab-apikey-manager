@@ -8,6 +8,7 @@ A lightweight, interactive Bash script to automate the creation and management o
 - **⚙️ Auto-API Enabling**: Checks and enables all required GCP services in your project before creating the key.
 - **🆔 Smart Project Detection**: Automatically detects your current `gcloud` project and asks for confirmation.
 - **🗑️ Conflict Management**: Detects existing keys with the same name and offers to delete them before recreating.
+- **📂 List & Cleanup**: Use the `--list` flag to view all API keys in your project and their status.
 - **📡 Key Recovery**: Automatically fetches and displays the secret key string upon successful creation.
 - **✨ User-Friendly**: Rich terminal output with emojis and clear status messages.
 
@@ -29,7 +30,15 @@ Simply clone the repository and run the script:
 ```bash
 git clone https://github.com/giacomoRanieri/codelab-apikey-manager.git
 cd codelab-apikey-manager
+
+# Standard interactive creation
 ./create_gemini_key.sh
+
+# List all existing keys in the project
+./create_gemini_key.sh --list
+
+# Show help
+./create_gemini_key.sh --help
 ```
 
 *(Note: The script is already marked as executable in the repository, so no `chmod` is required!)*

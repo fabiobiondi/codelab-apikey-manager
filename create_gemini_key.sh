@@ -1,13 +1,51 @@
 #!/bin/bash
 
-# 🚀 GOOGLE CLOUD API KEY CREATOR 🚀
+# 🚀 GOOGLE CLOUD API KEY CREATOR & MANAGER 🚀
 
-echo "------------------------------------------------"
-echo "🌟 Welcome to the API Key Creation Script! 🌟"
-echo "------------------------------------------------"
+# Function to display help
+show_help() {
+    echo "Usage: ./create_gemini_key.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --list      List all API keys in the project"
+    echo "  --help      Show this help message"
+    echo ""
+    echo "If no options are provided, the script starts the interactive creation flow."
+}
 
-# 🔍 Check for existing project in environment variables
+# Function to list keys
+list_keys() {
+    echo "📡 Fetching API keys for project '$PROJECT_ID'..."
+    echo "--------------------------------------------------------------------------------"
+    gcloud services api-keys list --project="$PROJECT_ID" --format="table(displayName, name.basename():label=ID, state, createTime)"
+    echo "--------------------------------------------------------------------------------"
+}
+
+# Initial Setup & Project Detection
 DEFAULT_PROJECT=$(gcloud config get-value project 2>/dev/null)
+
+# Argument Parsing
+case "$1" in
+    --list)
+        if [ -z "$DEFAULT_PROJECT" ]; then
+            read -p "🆔 Enter the Google Cloud Project ID: " PROJECT_ID
+        else
+            PROJECT_ID=$DEFAULT_PROJECT
+        fi
+        list_keys
+        exit 0
+        ;;
+    --help)
+        show_help
+        exit 0
+        ;;
+esac
+
+echo "------------------------------------------------"
+echo "🌟 Welcome to the API Key Manager! 🌟"
+echo "------------------------------------------------"
+
+# 🔍 Project Detection
 if [ ! -z "$DEFAULT_PROJECT" ]; then
     read -p "🆔 Found default project '$DEFAULT_PROJECT'. Use it? (y/n): " USE_DEFAULT
     if [[ "$USE_DEFAULT" =~ ^[Yy]$ ]]; then
@@ -15,7 +53,6 @@ if [ ! -z "$DEFAULT_PROJECT" ]; then
     fi
 fi
 
-# 📝 Prompt for Project ID if not set
 if [ -z "$PROJECT_ID" ]; then
     read -p "🆔 Enter the Google Cloud Project ID: " PROJECT_ID
     if [ -z "$PROJECT_ID" ]; then
@@ -26,7 +63,6 @@ fi
 
 # 🛠️ Enable required services
 echo "⚙️  Ensuring required APIs are enabled in project '$PROJECT_ID'..."
-echo "🔗 Enabling: Gemini API, Cloud Run, and Vertex AI..."
 gcloud services enable \
     generativelanguage.googleapis.com \
     run.googleapis.com \
@@ -35,10 +71,9 @@ gcloud services enable \
     --project="$PROJECT_ID"
 
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to enable required services. Please check your permissions."
+    echo "❌ Failed to enable required services."
     exit 1
 fi
-echo "✅ APIs are enabled."
 
 # 📝 Prompt for API Key Name
 read -p "🏷️ Enter the display name for the API Key: " KEY_NAME
@@ -47,40 +82,27 @@ if [ -z "$KEY_NAME" ]; then
     exit 1
 fi
 
-# 🔍 Check if a key with the same display name already exists
-echo "🕵️ Checking if API key '$KEY_NAME' already exists..."
+# 🔍 Check if key exists
 EXISTING_KEY_NAME=$(gcloud services api-keys list --project="$PROJECT_ID" --filter="displayName='$KEY_NAME'" --format="value(name)")
 
 if [ ! -z "$EXISTING_KEY_NAME" ]; then
-    echo "⚠️  An API key with the name '$KEY_NAME' already exists ($EXISTING_KEY_NAME)."
+    echo "⚠️  An API key with the name '$KEY_NAME' already exists."
     read -p "🗑️  Do you want to delete the existing key? (y/n): " DELETE_EXISTING
     if [[ "$DELETE_EXISTING" =~ ^[Yy]$ ]]; then
-        echo "♻️ Deleting existing key..."
         gcloud services api-keys delete "$EXISTING_KEY_NAME" --project="$PROJECT_ID" --quiet
-        if [ $? -ne 0 ]; then
-            echo "❌ Failed to delete the existing key. Aborting."
-            exit 1
-        fi
         echo "✅ Key deleted."
-        
-        echo ""
-        read -p "🔄 Do you want to recreate the key now? (y/n): " RECREATE
+        read -p "🔄 Do you want to recreate it now? (y/n): " RECREATE
         if [[ ! "$RECREATE" =~ ^[Yy]$ ]]; then
-            echo "👋 Termination requested. Goodbye!"
+            echo "👋 Goodbye!"
             exit 0
         fi
     else
-        echo "🛑 Aborting to avoid duplicates."
+        echo "🛑 Aborting."
         exit 0
     fi
 fi
 
-echo ""
-echo "🏗️  Creating API key '$KEY_NAME' in project '$PROJECT_ID'..."
-echo "🔗 Enabled Services: Gemini API 🤖, Cloud Run ☁️, and Vertex AI 🧠"
-echo ""
-
-# 🔑 Create the API key with restrictions
+echo "🏗️  Creating API key..."
 gcloud services api-keys create \
     --project="$PROJECT_ID" \
     --display-name="$KEY_NAME" \
@@ -89,26 +111,13 @@ gcloud services api-keys create \
     --api-target=service=aiplatform.googleapis.com
 
 if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ API Key created successfully!"
-    echo "⏳ Note: It may take up to 5 minutes for restrictions to propagate."
-    
-    # 🔍 Fetch the key string
-    echo "📡 Fetching the secret API key string..."
-    
+    echo "✅ Success!"
     KEY_STRING=$(gcloud services api-keys list --project="$PROJECT_ID" --filter="displayName='$KEY_NAME'" --format="value(name)" | xargs gcloud services api-keys get-key-string --project="$PROJECT_ID" --format="value(keyString)")
-    
-    if [ ! -z "$KEY_STRING" ]; then
-        echo ""
-        echo "-----------------------------------------------"
-        echo "🔑 API KEY: $KEY_STRING"
-        echo "-----------------------------------------------"
-        echo "✨ Operation completed successfully! ✨"
-    else
-        echo "⚠️  Could not fetch the key string automatically. You can find it in the GCP Console. 🖥️"
-    fi
+    echo "-----------------------------------------------"
+    echo "🔑 API KEY: $KEY_STRING"
+    echo "-----------------------------------------------"
 else
-    echo "💥 Error occurred while creating the API key."
+    echo "💥 Error creating key."
     exit 1
 fi
 
@@ -116,27 +125,22 @@ fi
 # 📚 DOCUMENTATION
 # 
 # 🎯 PURPOSE:
-# This script automates the creation of a Google Cloud Platform API Key
-# with specific restrictions for Gemini API, Cloud Run, and Vertex AI.
+# Automates GCP API Key creation, listing, and cleanup for Gemini, Cloud Run, and Vertex AI.
 #
 # 📋 PREREQUISITES:
-# 1. ☁️  Google Cloud SDK (gcloud) installed.
-# 2. 🔐 Authenticated via: `gcloud auth login`.
-# 3. 🔑 Sufficient permissions in the target project (Editor or Owner).
+# 1. gcloud SDK installed and authenticated.
+# 2. Project Editor/Owner permissions.
 #
 # ⚙️  HOW IT WORKS:
-# 1. 🔍 Detects default GCP project from local configuration.
-# 2. 🆔 Requests or confirms the GCP Project ID.
-# 3. ⚙️  Enables required APIs: Gemini, Cloud Run, Vertex AI, and API Keys API.
-# 4. 🏷️  Requests a Display Name for the key.
-# 5. 🕵️ Checks for existing keys with the same name and offers deletion.
-# 6. 🔄 If a key is deleted, asks whether to recreate it or terminate.
-# 7. 🛠️  Uses `gcloud services api-keys create` to generate the key.
-# 8. 🚫 Applies API restrictions for Gemini, Cloud Run, and Vertex AI.
-# 9. 📤 Fetches and prints the final key string.
+# 1. 📂 Supports flags like --list to view all project keys.
+# 2. 🆔 Handles project detection and API enabling automatically.
+# 3. 🏷️  Interactive creation with duplicate detection.
+# 4. 🔄 Offers deletion and optional recreation for existing keys.
+# 5. 🚫 Applies strict API target restrictions (Gemini, Run, Vertex).
 #
 # 🚀 USAGE:
-# chmod +x create_gemini_key.sh
-# ./create_gemini_key.sh
+# ./create_gemini_key.sh          # Interactive creation
+# ./create_gemini_key.sh --list   # List all keys
+# ./create_gemini_key.sh --help   # Show options
 #
 ################################################################################
