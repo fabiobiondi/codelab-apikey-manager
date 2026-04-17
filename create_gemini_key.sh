@@ -53,7 +53,7 @@ EXISTING_KEY_NAME=$(gcloud services api-keys list --project="$PROJECT_ID" --filt
 
 if [ ! -z "$EXISTING_KEY_NAME" ]; then
     echo "⚠️  An API key with the name '$KEY_NAME' already exists ($EXISTING_KEY_NAME)."
-    read -p "🗑️  Do you want to delete the existing key and create a new one? (y/n): " DELETE_EXISTING
+    read -p "🗑️  Do you want to delete the existing key? (y/n): " DELETE_EXISTING
     if [[ "$DELETE_EXISTING" =~ ^[Yy]$ ]]; then
         echo "♻️ Deleting existing key..."
         gcloud services api-keys delete "$EXISTING_KEY_NAME" --project="$PROJECT_ID" --quiet
@@ -62,8 +62,15 @@ if [ ! -z "$EXISTING_KEY_NAME" ]; then
             exit 1
         fi
         echo "✅ Key deleted."
+        
+        echo ""
+        read -p "🔄 Do you want to recreate the key now? (y/n): " RECREATE
+        if [[ ! "$RECREATE" =~ ^[Yy]$ ]]; then
+            echo "👋 Termination requested. Goodbye!"
+            exit 0
+        fi
     else
-        echo "🛑 Aborting creation to avoid duplicates."
+        echo "🛑 Aborting to avoid duplicates."
         exit 0
     fi
 fi
