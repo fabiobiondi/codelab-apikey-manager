@@ -34,6 +34,16 @@ cd codelab-apikey-manager
 
 *(Note: The script is already marked as executable in the repository, so no `chmod` is required!)*
 
+## ☁️ Usage on Google Cloud Shell
+
+Google Cloud Shell is the easiest way to run this script as it comes with `gcloud` pre-installed and pre-authenticated.
+
+1.  Open [Google Cloud Shell](https://shell.cloud.google.com).
+2.  Run the following one-liner to clone and start:
+    ```bash
+    git clone https://github.com/giacomoRanieri/codelab-apikey-manager.git && cd codelab-apikey-manager && ./create_gemini_key.sh
+    ```
+
 ## 🛠️ How it Works
 
 1.  **Project Selection**: Checks for a default project in your environment.
