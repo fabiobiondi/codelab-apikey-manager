@@ -130,9 +130,10 @@ fi
 # 3. ⚙️  Enables required APIs: Gemini, Cloud Run, Vertex AI, and API Keys API.
 # 4. 🏷️  Requests a Display Name for the key.
 # 5. 🕵️ Checks for existing keys with the same name and offers deletion.
-# 6. 🛠️  Uses `gcloud services api-keys create` to generate the key.
-# 7. 🚫 Applies API restrictions for Gemini, Cloud Run, and Vertex AI.
-# 8. 📤 Fetches and prints the final key string.
+# 6. 🔄 If a key is deleted, asks whether to recreate it or terminate.
+# 7. 🛠️  Uses `gcloud services api-keys create` to generate the key.
+# 8. 🚫 Applies API restrictions for Gemini, Cloud Run, and Vertex AI.
+# 9. 📤 Fetches and prints the final key string.
 #
 # 🚀 USAGE:
 # chmod +x create_gemini_key.sh

@@ -49,8 +49,9 @@ Google Cloud Shell is the easiest way to run this script as it comes with `gclou
 1.  **Project Selection**: Checks for a default project in your environment.
 2.  **API Activation**: Enables `generativelanguage.googleapis.com`, `run.googleapis.com`, `aiplatform.googleapis.com`, and `apikeys.googleapis.com`.
 3.  **Validation**: Prompts for a display name and checks for existing duplicates.
-4.  **Creation**: Generates the key with precise API target restrictions for maximum security.
-5.  **Output**: Displays the final API key string for immediate use.
+4.  **Conflict Resolution**: If a key exists, offers deletion followed by a choice to recreate or terminate.
+5.  **Creation**: Generates the key with precise API target restrictions for maximum security.
+6.  **Output**: Displays the final API key string for immediate use.
 
 ## ⚠️ Important Notes
 
