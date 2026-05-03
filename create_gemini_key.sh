@@ -67,7 +67,7 @@ fi
 
 # 5️⃣ API Selection
 # Default list
-SELECTED_APIS=("generativelanguage.googleapis.com" "run.googleapis.com" "aiplatform.googleapis.com")
+SELECTED_APIS=("generativelanguage.googleapis.com" "run.googleapis.com" "aiplatform.googleapis.com", "cloudbuild.googleapis.com")
 
 echo ""
 echo "🧩 Default APIs to be enabled and restricted for this key:"
@@ -84,6 +84,7 @@ if [[ "$MODIFY_APIS" =~ ^[Yy]$ ]]; then
         "generativelanguage.googleapis.com (Gemini API)"
         "run.googleapis.com (Cloud Run)"
         "aiplatform.googleapis.com (Vertex AI)"
+        "cloudbuild.googleapis.com"
         "language.googleapis.com (Natural Language API)"
         "vision.googleapis.com (Vision API)"
         "speech.googleapis.com (Speech-to-Text)"
