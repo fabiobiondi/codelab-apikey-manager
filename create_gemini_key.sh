@@ -94,6 +94,7 @@ if [[ "$MODIFY_APIS" =~ ^[Yy]$ ]]; then
         "generativelanguage.googleapis.com"
         "run.googleapis.com"
         "aiplatform.googleapis.com"
+        "cloudbuild.googleapis.com"
         "language.googleapis.com"
         "vision.googleapis.com"
         "speech.googleapis.com"
