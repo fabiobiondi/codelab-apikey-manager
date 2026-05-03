@@ -67,7 +67,7 @@ fi
 
 # 5️⃣ API Selection
 # Default list
-SELECTED_APIS=("generativelanguage.googleapis.com" "run.googleapis.com" "aiplatform.googleapis.com", "cloudbuild.googleapis.com")
+SELECTED_APIS=("generativelanguage.googleapis.com" "run.googleapis.com" "aiplatform.googleapis.com" "cloudbuild.googleapis.com")
 
 echo ""
 echo "🧩 Default APIs to be enabled and restricted for this key:"
