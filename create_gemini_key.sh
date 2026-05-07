@@ -34,16 +34,20 @@ pick_from_list() {
         return $?
     fi
 
-    # Fallback: numbered list on stderr, read number from user
+    # Fallback: numbered list on stderr, read number from user.
+    # Read from /dev/tty because our stdin is the piped item list.
     {
         echo ""
         for i in "${!items[@]}"; do
             echo "   $((i+1))) ${items[$i]}"
         done
         echo ""
+        printf "🔢 Enter the number for %s: " "$label"
     } >&2
     local choice
-    read -r -p "🔢 Enter the number for ${label}: " choice
+    if ! read -r choice </dev/tty; then
+        return 1
+    fi
     if [[ "$choice" =~ ^[0-9]+$ ]] && \
        [ "$choice" -ge 1 ] && \
        [ "$choice" -le "${#items[@]}" ]; then
