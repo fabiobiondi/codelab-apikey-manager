@@ -68,6 +68,7 @@ echo "📦 Project setup..."
 
 DEFAULT_PROJECT=$(gcloud config get-value project 2>/dev/null)
 PROJECT_ID=""
+CREATE_NEW=0
 
 # Show available projects to help students decide
 echo "📋 Projects you currently have access to:"
@@ -79,38 +80,42 @@ if [ -n "$DEFAULT_PROJECT" ] && [ "$DEFAULT_PROJECT" != "(unset)" ]; then
     PROJECT_CHOICE=${PROJECT_CHOICE:-Y}
     if [[ "$PROJECT_CHOICE" =~ ^[Yy]$ ]]; then
         PROJECT_ID=$DEFAULT_PROJECT
-    elif [[ "$PROJECT_CHOICE" =~ ^[Nn]ew$ ]] || [[ "$PROJECT_CHOICE" =~ ^[Nn]$ ]]; then
-        PROJECT_ID=""  # fall through to creation/selection
+    elif [[ "$PROJECT_CHOICE" =~ ^[Nn]ew$ ]]; then
+        CREATE_NEW=1
     fi
+    # any other input (n, no, etc.) → fall through to existing/new prompt
 fi
 
-if [ -z "$PROJECT_ID" ]; then
+if [ -z "$PROJECT_ID" ] && [ "$CREATE_NEW" -eq 0 ]; then
     echo ""
     read -p "🆔 Enter an existing project ID, or type 'new' to create one: " PROJECT_INPUT
 
     if [ "$PROJECT_INPUT" = "new" ]; then
-        # Generate a unique project ID (must be globally unique, 6-30 chars, lowercase)
-        SUGGESTED_ID="workshop-$(date +%s)-$RANDOM"
-        SUGGESTED_ID=$(echo "$SUGGESTED_ID" | tr '[:upper:]' '[:lower:]' | cut -c1-30)
-        read -p "📝 New project ID (default: $SUGGESTED_ID): " NEW_PROJECT_ID
-        NEW_PROJECT_ID=${NEW_PROJECT_ID:-$SUGGESTED_ID}
-
-        echo "🏗️  Creating project '$NEW_PROJECT_ID'..."
-        if ! gcloud projects create "$NEW_PROJECT_ID" --name="Workshop Project" --quiet; then
-            echo "❌ Failed to create project. The ID might already be taken globally."
-            exit 1
-        fi
-        PROJECT_ID="$NEW_PROJECT_ID"
-        gcloud config set project "$PROJECT_ID" --quiet
-        echo "✅ Project created and set as active."
+        CREATE_NEW=1
+    elif [ -z "$PROJECT_INPUT" ]; then
+        echo "❌ Project ID required."
+        exit 1
     else
-        if [ -z "$PROJECT_INPUT" ]; then
-            echo "❌ Project ID required."
-            exit 1
-        fi
         PROJECT_ID="$PROJECT_INPUT"
         gcloud config set project "$PROJECT_ID" --quiet
     fi
+fi
+
+if [ "$CREATE_NEW" -eq 1 ]; then
+    # Generate a unique project ID (must be globally unique, 6-30 chars, lowercase)
+    SUGGESTED_ID="workshop-$(date +%s)-$RANDOM"
+    SUGGESTED_ID=$(echo "$SUGGESTED_ID" | tr '[:upper:]' '[:lower:]' | cut -c1-30)
+    read -p "📝 New project ID (default: $SUGGESTED_ID): " NEW_PROJECT_ID
+    NEW_PROJECT_ID=${NEW_PROJECT_ID:-$SUGGESTED_ID}
+
+    echo "🏗️  Creating project '$NEW_PROJECT_ID'..."
+    if ! gcloud projects create "$NEW_PROJECT_ID" --name="Workshop Project" --quiet; then
+        echo "❌ Failed to create project. The ID might already be taken globally."
+        exit 1
+    fi
+    PROJECT_ID="$NEW_PROJECT_ID"
+    gcloud config set project "$PROJECT_ID" --quiet
+    echo "✅ Project created and set as active."
 fi
 
 # Verify access
