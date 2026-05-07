@@ -6,6 +6,53 @@
 
 set -uo pipefail
 
+# ────────────────────────────────────────────────────────────────────
+# Helper: interactive picker. Uses fzf when available, otherwise falls
+# back to a numbered prompt. Items come from stdin (one per line); the
+# chosen item is echoed on stdout. Prompts go to stderr so callers can
+# capture stdout cleanly. Returns non-zero if the user cancels.
+# ────────────────────────────────────────────────────────────────────
+pick_from_list() {
+    local label="$1"
+    local items=()
+    local line
+    while IFS= read -r line; do
+        items+=("$line")
+    done
+
+    if [ ${#items[@]} -eq 0 ]; then
+        return 1
+    fi
+
+    if command -v fzf >/dev/null 2>&1; then
+        printf '%s\n' "${items[@]}" | fzf \
+            --height=40% \
+            --reverse \
+            --no-info \
+            --prompt="${label} > " \
+            --header="↑/↓ to move, Enter to select, Esc to cancel"
+        return $?
+    fi
+
+    # Fallback: numbered list on stderr, read number from user
+    {
+        echo ""
+        for i in "${!items[@]}"; do
+            echo "   $((i+1))) ${items[$i]}"
+        done
+        echo ""
+    } >&2
+    local choice
+    read -r -p "🔢 Enter the number for ${label}: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && \
+       [ "$choice" -ge 1 ] && \
+       [ "$choice" -le "${#items[@]}" ]; then
+        printf '%s\n' "${items[$((choice-1))]}"
+        return 0
+    fi
+    return 1
+}
+
 echo "------------------------------------------------"
 echo "🌟 Workshop API Key Manager 🌟"
 echo "------------------------------------------------"
@@ -48,16 +95,23 @@ if [ ${#OPEN_BILLING[@]} -eq 1 ]; then
     BILLING_ACCOUNT="${OPEN_BILLING[0]}"
     echo "✅ Using billing account: $BILLING_ACCOUNT"
 else
-    echo "📋 Multiple open billing accounts found:"
-    gcloud billing accounts list --filter="open=true" \
-        --format="table(name.basename():label=ID, displayName, open)"
-    echo ""
+    echo "📋 Multiple open billing accounts found."
     echo "   (Trial credits are usually 'Google Cloud Platform Trial Billing Account')"
-    read -p "🔗 Enter the billing account ID to use: " BILLING_ACCOUNT
-    if [ -z "$BILLING_ACCOUNT" ]; then
-        echo "❌ Billing account ID required."
+    mapfile -t BILLING_DISPLAY < <(gcloud billing accounts list --filter="open=true" \
+        --format="value(displayName)" 2>/dev/null)
+
+    BILLING_ITEMS=()
+    for i in "${!OPEN_BILLING[@]}"; do
+        BILLING_ITEMS+=("${OPEN_BILLING[$i]}  —  ${BILLING_DISPLAY[$i]:-}")
+    done
+
+    BILLING_CHOICE=$(printf '%s\n' "${BILLING_ITEMS[@]}" | pick_from_list "Billing account")
+    if [ -z "$BILLING_CHOICE" ]; then
+        echo "❌ No billing account selected."
         exit 1
     fi
+    BILLING_ACCOUNT="${BILLING_CHOICE%%  —  *}"
+    echo "✅ Using billing account: $BILLING_ACCOUNT"
 fi
 
 # ────────────────────────────────────────────────────────────────────
@@ -70,10 +124,9 @@ DEFAULT_PROJECT=$(gcloud config get-value project 2>/dev/null)
 PROJECT_ID=""
 CREATE_NEW=0
 
-# Show available projects to help students decide
-echo "📋 Projects you currently have access to:"
-gcloud projects list --format="table(projectId, name)" 2>/dev/null || echo "   (none)"
-echo ""
+# Load available projects into arrays
+mapfile -t AVAILABLE_PROJECTS < <(gcloud projects list --format="value(projectId)" 2>/dev/null)
+mapfile -t AVAILABLE_PROJECT_NAMES < <(gcloud projects list --format="value(name)" 2>/dev/null)
 
 if [ -n "$DEFAULT_PROJECT" ] && [ "$DEFAULT_PROJECT" != "(unset)" ]; then
     read -p "🆔 Use current project '$DEFAULT_PROJECT'? (Y/n/new): " PROJECT_CHOICE
@@ -88,16 +141,48 @@ fi
 
 if [ -z "$PROJECT_ID" ] && [ "$CREATE_NEW" -eq 0 ]; then
     echo ""
-    read -p "🆔 Enter an existing project ID, or type 'new' to create one: " PROJECT_INPUT
+    NEW_ENTRY="+ Create new project"
 
-    if [ "$PROJECT_INPUT" = "new" ]; then
-        CREATE_NEW=1
-    elif [ -z "$PROJECT_INPUT" ]; then
-        echo "❌ Project ID required."
-        exit 1
+    if [ ${#AVAILABLE_PROJECTS[@]} -gt 0 ]; then
+        echo "📋 Pick a project (or create a new one):"
+        PROJECT_ITEMS=("$NEW_ENTRY")
+        for i in "${!AVAILABLE_PROJECTS[@]}"; do
+            PROJECT_ITEMS+=("${AVAILABLE_PROJECTS[$i]}  —  ${AVAILABLE_PROJECT_NAMES[$i]:-}")
+        done
+
+        PROJECT_CHOICE=$(printf '%s\n' "${PROJECT_ITEMS[@]}" | pick_from_list "Project")
+
+        if [ -z "$PROJECT_CHOICE" ]; then
+            # Fallback path may yield empty if the user typed nothing.
+            # Allow them to type a raw project ID or 'new' as a last resort.
+            read -r -p "🆔 Enter an existing project ID, or type 'new' to create one: " PROJECT_INPUT
+            if [ "$PROJECT_INPUT" = "new" ]; then
+                CREATE_NEW=1
+            elif [ -z "$PROJECT_INPUT" ]; then
+                echo "❌ Project ID required."
+                exit 1
+            else
+                PROJECT_ID="$PROJECT_INPUT"
+                gcloud config set project "$PROJECT_ID" --quiet
+            fi
+        elif [ "$PROJECT_CHOICE" = "$NEW_ENTRY" ]; then
+            CREATE_NEW=1
+        else
+            PROJECT_ID="${PROJECT_CHOICE%%  —  *}"
+            gcloud config set project "$PROJECT_ID" --quiet
+        fi
     else
-        PROJECT_ID="$PROJECT_INPUT"
-        gcloud config set project "$PROJECT_ID" --quiet
+        echo "   (no existing projects found)"
+        read -r -p "🆔 Type 'new' to create one, or enter a project ID: " PROJECT_INPUT
+        if [ "$PROJECT_INPUT" = "new" ]; then
+            CREATE_NEW=1
+        elif [ -z "$PROJECT_INPUT" ]; then
+            echo "❌ Project ID required."
+            exit 1
+        else
+            PROJECT_ID="$PROJECT_INPUT"
+            gcloud config set project "$PROJECT_ID" --quiet
+        fi
     fi
 fi
 
