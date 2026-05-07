@@ -176,35 +176,45 @@ if [ -z "$PROJECT_ID" ] && [ "$CREATE_NEW" -eq 0 ]; then
             gcloud config set project "$PROJECT_ID" --quiet
         fi
     else
-        echo "   (no existing projects found)"
-        read -r -p "🆔 Type 'new' to create one, or enter a project ID: " PROJECT_INPUT
-        if [ "$PROJECT_INPUT" = "new" ]; then
+        echo "   No existing projects found in this account."
+        PROJECT_ITEMS=("$NEW_ENTRY")
+        PROJECT_CHOICE=$(printf '%s\n' "${PROJECT_ITEMS[@]}" | pick_from_list "Project")
+        if [ "$PROJECT_CHOICE" = "$NEW_ENTRY" ]; then
             CREATE_NEW=1
-        elif [ -z "$PROJECT_INPUT" ]; then
-            echo "❌ Project ID required."
-            exit 1
         else
-            PROJECT_ID="$PROJECT_INPUT"
-            gcloud config set project "$PROJECT_ID" --quiet
+            echo "❌ No selection made."
+            exit 1
         fi
     fi
 fi
 
 if [ "$CREATE_NEW" -eq 1 ]; then
-    # Generate a unique project ID (must be globally unique, 6-30 chars, lowercase)
-    SUGGESTED_ID="workshop-$(date +%s)-$RANDOM"
-    SUGGESTED_ID=$(echo "$SUGGESTED_ID" | tr '[:upper:]' '[:lower:]' | cut -c1-30)
-    read -p "📝 New project ID (default: $SUGGESTED_ID): " NEW_PROJECT_ID
-    NEW_PROJECT_ID=${NEW_PROJECT_ID:-$SUGGESTED_ID}
+    # Project IDs must be globally unique, 6-30 chars, lowercase.
+    # Retry until creation succeeds or the user aborts (Ctrl+C / empty after suggestion).
+    while true; do
+        SUGGESTED_ID="workshop-$(date +%s)-$RANDOM"
+        SUGGESTED_ID=$(echo "$SUGGESTED_ID" | tr '[:upper:]' '[:lower:]' | cut -c1-30)
+        read -p "📝 New project ID (default: $SUGGESTED_ID): " NEW_PROJECT_ID
+        NEW_PROJECT_ID=${NEW_PROJECT_ID:-$SUGGESTED_ID}
 
-    echo "🏗️  Creating project '$NEW_PROJECT_ID'..."
-    if ! gcloud projects create "$NEW_PROJECT_ID" --name="Workshop Project" --quiet; then
-        echo "❌ Failed to create project. The ID might already be taken globally."
-        exit 1
-    fi
-    PROJECT_ID="$NEW_PROJECT_ID"
-    gcloud config set project "$PROJECT_ID" --quiet
-    echo "✅ Project created and set as active."
+        echo "🏗️  Creating project '$NEW_PROJECT_ID'..."
+        if gcloud projects create "$NEW_PROJECT_ID" --name="Workshop Project" --quiet; then
+            PROJECT_ID="$NEW_PROJECT_ID"
+            gcloud config set project "$PROJECT_ID" --quiet
+            echo "✅ Project created and set as active."
+            break
+        fi
+
+        echo "⚠️  Could not create '$NEW_PROJECT_ID' — the ID may already be taken globally,"
+        echo "    or it may not meet the rules (6–30 chars, lowercase letters/digits/hyphens,"
+        echo "    must start with a letter)."
+        read -p "🔁 Try a different ID? (Y/n): " RETRY
+        RETRY=${RETRY:-Y}
+        if [[ ! "$RETRY" =~ ^[Yy]$ ]]; then
+            echo "🛑 Aborting."
+            exit 1
+        fi
+    done
 fi
 
 # Verify access
